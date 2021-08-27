@@ -135,7 +135,7 @@ END:VTIMEZONE
 
 				if period_count < 6:
 					lesson_code2 = data[day_count][period_count+1][1]
-					if lesson_code1 == lesson_code2:
+					if lesson_code1 == lesson_code2 or ("STP" in lesson_code1 and "STP" in lesson_code2 and period_count != 3):
 						skip = True
 						end = PERIOD_END[period_count+1]
 
