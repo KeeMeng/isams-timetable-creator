@@ -3,106 +3,124 @@ import datetime
 
 
 def main():
-
-	#last day     YYYY/MM/DD
+	# last day    YYYY/MM/DD
 	SCHOOL_END = "2022/06/29".replace("/","")
 
-	# Your year level
+	# year level
 	YEAR = 13
 
-	# Week A = 1, Week B = 2
+	# week a = 1, week b = 2
 	CURRENT_WEEK = 1
 
-	# Period        1       2       3       4       6       7       8
-	PERIOD_START = ["0815", "0915", "1035", "1135", "1335", "1435", "1535"]
-	PERIOD_END   = ["0910", "1010", "1130", "1230", "1430", "1530", "1630"]
+	# whether or not to have early lunch in study period
+	EARLY_LUNCH = True
 
-	# Daily events eg breaks
-	DAILY = [
-	#   ["start", "end", "name", "teacher", "location"]
-		["0800", "0810", "Registration", "", ""], 
-		["1015", "1030", "Break", "", ""], 
-		["1235", "1330", "Lunch", "", ""]
+	# period        1       2       3       4       5       6       7       8       cca
+	PERIOD_START = ["0815", "0915", "1035", "1135", "1235", "1335", "1435", "1535", "1635"]
+	PERIOD_END   = ["0910", "1010", "1130", "1230", "1330", "1430", "1530", "1630", "1730"]
+
+	# daily events eg breaks
+	EXTRA = [
+	#   ["start", "end", "name", "teacher", "location", [days]]
+		["0730", "0755", "Breakfast", "", "", [1,2,3,4,5]],
+		["1305", "1330", "Lunch", "", "", [1,2,3,4,5]], 
+		["1830", "1855", "Dinner", "", "", [1,2,3,4]]
 	]
 
+	# staff name initials
 	STAFF = {
-	#   "Last Name": "(INITIALS)"
-		"Bastyan": "(DB)"
+	#   "Last Name": " (INITIALS)"
 	}
 
-	# Class name replacements
+	# class name replacements
 	CLASS = {
-		"Super Curricular Activity": "SCA",
+		# "Extended Project Qualification": "EPQ"
 	}
 
+	# if games location isn't specified, set it here
+	GAMES_LOCATION = ""
 
-	#default starting of ics file
-	lines = """
-BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-BEGIN:VTIMEZONE
-TZID:Asia/Hong_Kong
-TZURL:http://tzurl.org/zoneinfo-outlook/Asia/Hong_Kong
-X-LIC-LOCATION:Asia/Hong_Kong
-BEGIN:STANDARD
-TZOFFSETFROM:+0800
-TZOFFSETTO:+0800
-TZNAME:CST
-DTSTART:19700101T000000
-END:STANDARD
-END:VTIMEZONE
-"""
 
-	# Input data copied from isams
-	week = 0
+	# default starting of ics file
+	lines = "BEGIN:VCALENDAR"
+	lines += """
+		VERSION:2.0
+		CALSCALE:GREGORIAN
+		BEGIN:VTIMEZONE
+		TZID:Asia/Hong_Kong
+		TZURL:http://tzurl.org/zoneinfo-outlook/Asia/Hong_Kong
+		X-LIC-LOCATION:Asia/Hong_Kong
+		BEGIN:STANDARD
+		TZOFFSETFROM:+0800
+		TZOFFSETTO:+0800
+		TZNAME:CST
+		DTSTART:19700101T000000
+		END:STANDARD
+		END:VTIMEZONE
+	""".replace("\t","")
+
+	# input data copied from isams
+	week_count = 0
 	week_a = []
 	week_b = []
 	while True:
 		temp = input()
 		if temp.startswith("Printed by"):
 			break
-		if temp == "":
+		elif temp == "" or temp == "P\tMonday\tTuesday\tWednesday\tThursday\tFriday":
 			continue
-		if "Timetable Week 1" in temp:
-			week = 1
+		elif "Timetable Week 1" in temp:
+			week_count = 1
 			continue
 		elif "Timetable Week 2" in temp:
-			week = 2
+			week_count = 2
 			continue
-		if week == 1:
-			week_a.append(temp)
-		if week == 2:
-			week_b.append(temp)
-
-	week_a = [i for i in week_a[1:] if not i.startswith("Period") and "Registration" not in i and "\t" not in i]
-	week_b = [i for i in week_b[1:] if not i.startswith("Period") and "Registration" not in i and "\t" not in i]
+		elif not re.search("^(Period|After School CCA|Registration)", temp) and "\t" not in temp:
+			if week_count == 1:
+				week_a.append(temp)
+			elif week_count == 2:
+				week_b.append(temp)
 
 	weeks = []
 	if CURRENT_WEEK == 1:
-		weeks.extend([week_a, week_b])
+		weeks = [week_a, week_b]
 	else:
-		weeks.extend([week_b, week_a])
+		weeks = [week_b, week_a]
 
-	#loop for Week A and B
-	for week in range(2):
-		data = [[[], [], [], [], [], [], []], [[], [], [], [], [], [], []], [[], [], [], [], [], [], []], [[], [], [], [], [], [], []], [[], [], [], [], [], [], []]]
+	# loop for Week A and B
+	for week_count in range(2):
+		data = [[[] for j in range(len(PERIOD_START))] for i in range(5)]
 		
 		# converting to 2d array
-		count = -1
-		for line in weeks[week][1:]:
-			if line.startswith(str(YEAR)):
-				count += 1
-				if count > 0:
-					data[count%5][count//5].append(data[(count-1)%5][(count-1)//5].pop())
-				else:
-					data[0][0].append(weeks[week][0])
-			data[count%5][count//5].append(line)
+		line_count = 0
+		block_count = 0
+		cca = 0
+		games = False
+		for line in weeks[week_count]:
+			if line_count == 0:
+				if "CCA" in line:
+					cca += 1
+				elif cca != 0:
+					block_count += 5 - cca
+					cca = 0
+			data[block_count%5][block_count//5].append(line)
+			line_count += 1
+			if "Games" in line and GAMES_LOCATION != "":
+				games = True
+			if line_count == 3 and games:
+				line_count += 1
+				data[block_count%5][block_count//5].append(GAMES_LOCATION)
+				games = False
+				line_count = 0
+				block_count += 1
+			elif line_count == 4:
+				line_count = 0
+				block_count += 1
 
 		today = datetime.date.today()
-		start_day = today - datetime.timedelta(days=today.weekday()) + datetime.timedelta(days=week*7)
+		start_day = today - datetime.timedelta(days=today.weekday()) + datetime.timedelta(days=week_count*7)
 
-		#finding all other lessons
+		# adding classes
 		for day_count in range(5):
 			skip = False
 
@@ -111,13 +129,11 @@ END:VTIMEZONE
 			month = str(current_day.month).zfill(2)
 			year = str(current_day.year).zfill(4)
 
-			for period_count in range(7):
-				if skip:
+			for period_count in range(len(PERIOD_START)):
+				if skip or data[day_count][period_count] == []:
 					skip = False
 					continue
-
 				lesson = data[day_count][period_count][0]
-				lesson = CLASS.get(lesson, lesson)
 				lesson_code1 = data[day_count][period_count][1]
 				start = PERIOD_START[period_count]
 				end = PERIOD_END[period_count]
@@ -133,41 +149,58 @@ END:VTIMEZONE
 					teacher = data[day_count][period_count][2]
 					location = data[day_count][period_count][3]
 
-				if period_count < 6:
-					lesson_code2 = data[day_count][period_count+1][1]
-					if lesson_code1 == lesson_code2 or ("STP" in lesson_code1 and "STP" in lesson_code2 and period_count != 3):
-						skip = True
-						end = PERIOD_END[period_count+1]
+				if period_count < len(PERIOD_START) - 1:
+					if data[day_count][period_count+1] != []:
+						lesson_code2 = data[day_count][period_count+1][1]
+						if lesson_code1 == lesson_code2 or ("STP" in lesson_code1 and "STP" in lesson_code2 and period_count != 3):
+							skip = True
+							end = PERIOD_END[period_count+1]
 
 				initials = STAFF.get(teacher.split(" ")[-1], "")
 
-				lines += f"""
-BEGIN:VEVENT
-DTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T{start}00
-DTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T{end}00
-RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z
-SUMMARY:{lesson} {initials}
-DESCRIPTION:{lesson_code1}\\n{teacher}
-LOCATION:{location}
-END:VEVENT
-"""
+				if "CCA" in lesson or "SCA" in lesson:
+					lesson, lesson_code1 = lesson_code1, lesson
 
-			# Add registration/breaks/lunch
-			for event in DAILY:
+				if lesson == "Extended Project Qualification":
+					location = "Sixth Form Zone"
+
+				lesson = CLASS.get(lesson, lesson)
+
+				if period_count == 3 and lesson == "Study Period" and EARLY_LUNCH:
+					end = "1200"
+					lines += f"BEGIN:VEVENT\nDTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T120500\nDTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T123000\nRRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z\nSUMMARY:Lunch\nEND:VEVENT"
+
+
+				location = location.replace("SFZ", "Sixth Form Zone")
+
 				lines += f"""
-BEGIN:VEVENT
-DTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T{event[0]}00
-DTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T{event[1]}00
-RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z
-SUMMARY:{event[2]}
-DESCRIPTION:{event[3]}
-LOCATION:{event[4]}
-END:VEVENT
-"""
+					BEGIN:VEVENT
+					DTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T{start}00
+					DTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T{end}00
+					RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z
+					SUMMARY:{lesson}{initials}
+					DESCRIPTION:{lesson_code1}\\n{teacher}
+					LOCATION:{location}
+					END:VEVENT
+				""".replace("\t","")
+
+			# add daily extra events
+			for event in EXTRA:
+				if (day_count + 1) in event[5]:
+					lines += f"""
+						BEGIN:VEVENT
+						DTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T{event[0]}00
+						DTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T{event[1]}00
+						RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z
+						SUMMARY:{event[2]}
+						DESCRIPTION:{event[3]}
+						LOCATION:{event[4]}
+						END:VEVENT
+					""".replace("\t","")
 
 	lines += "\nEND:VCALENDAR"
 
-	#creates ics file
+	# creates ics file
 	with open("Timetable.ics", "w") as ics_file:
 		ics_file.writelines(lines)
 
