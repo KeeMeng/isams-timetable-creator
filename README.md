@@ -8,3 +8,4 @@ Creates an ics file from [isams timetable](https://harrowhk.students.isams.cloud
 4) Run the python script and paste everything into the console(<kbd>Command</kbd> + <kbd>V</kbd>)
 5) A `Timetable.ics` should be created
 6) Open the file and add it to your calendar app!
+7) Move the CCAs and SCAs to the right day of the week
