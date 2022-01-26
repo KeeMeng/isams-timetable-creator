@@ -4,25 +4,34 @@ import datetime
 
 def main():
 	# last day    YYYY/MM/DD
-	SCHOOL_END = "2022/06/29".replace("/","")
+	SCHOOL_END = "2022/06/29".replace("/", "")
 
 	# year level
 	YEAR = 13
 
 	# week a = 1, week b = 2
-	CURRENT_WEEK = 1
+	CURRENT_WEEK = 2
 
 	# whether or not to have early lunch in study period
 	EARLY_LUNCH = True
+
+	LUNCHTIME_CCA = False
 
 	# period        1       2       3       4       5       6       7       8       cca
 	PERIOD_START = ["0815", "0915", "1035", "1135", "1235", "1335", "1435", "1535", "1635"]
 	PERIOD_END   = ["0910", "1010", "1130", "1230", "1330", "1430", "1530", "1630", "1730"]
 
+	if not LUNCHTIME_CCA:
+		PERIOD_START.pop(4)
+		PERIOD_END.pop(4)
+
 	# daily events eg breaks
 	EXTRA = [
 	#   ["start", "end", "name", "teacher", "location", [days]]
-		["0730", "0755", "Breakfast", "", "", [1,2,3,4,5]],
+		["0730", "0755", "Breakfast", "", "", [1,2,3,4,5]], 
+		["0800", "0810", "Registration", "", "", [1,2,3,4,5]], 
+		["1015", "1030", "Break", "", "", [1,2,3,4,5]], 
+		["1235", "1300", "Registration", "", "", [1,2,3,4,5]], 
 		["1305", "1330", "Lunch", "", "", [1,2,3,4,5]], 
 		["1830", "1855", "Dinner", "", "", [1,2,3,4]]
 	]
@@ -30,11 +39,12 @@ def main():
 	# staff name initials
 	STAFF = {
 	#   "Last Name": " (INITIALS)"
+		"Example": " (EG)"
 	}
 
 	# class name replacements
 	CLASS = {
-		# "Extended Project Qualification": "EPQ"
+		# "Extended Project Qualification": "EPQ",
 	}
 
 	# if games location isn't specified, set it here
@@ -57,7 +67,7 @@ def main():
 		DTSTART:19700101T000000
 		END:STANDARD
 		END:VTIMEZONE
-	""".replace("\t","")
+	""".replace("\t", "")
 
 	# input data copied from isams
 	week_count = 0
@@ -75,7 +85,7 @@ def main():
 		elif "Timetable Week 2" in temp:
 			week_count = 2
 			continue
-		elif not re.search("^(Period|After School CCA|Registration)", temp) and "\t" not in temp:
+		elif not re.search("^(Period|P\d|After School CCA|Registration|REG)", temp) and "\t" not in temp:
 			if week_count == 1:
 				week_a.append(temp)
 			elif week_count == 2:
@@ -133,6 +143,8 @@ def main():
 				if skip or data[day_count][period_count] == []:
 					skip = False
 					continue
+				# if period_count == 4 and not LUNCHTIME_CCA:
+				# 	continue
 				lesson = data[day_count][period_count][0]
 				lesson_code1 = data[day_count][period_count][1]
 				start = PERIOD_START[period_count]
@@ -168,7 +180,12 @@ def main():
 
 				if period_count == 3 and lesson == "Study Period" and EARLY_LUNCH:
 					end = "1200"
-					lines += f"BEGIN:VEVENT\nDTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T120500\nDTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T123000\nRRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z\nSUMMARY:Lunch\nEND:VEVENT"
+					lines += f"""BEGIN:VEVENT
+						DTSTART;TZID=Asia/Hong_Kong:{year}{month}{day}T120500
+						DTEND;TZID=Asia/Hong_Kong:{year}{month}{day}T123000
+						RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL={SCHOOL_END}T080000Z
+						SUMMARY:Lunch
+						END:VEVENT""".replace("\t", "")
 
 
 				location = location.replace("SFZ", "Sixth Form Zone")
@@ -182,7 +199,7 @@ def main():
 					DESCRIPTION:{lesson_code1}\\n{teacher}
 					LOCATION:{location}
 					END:VEVENT
-				""".replace("\t","")
+				""".replace("\t", "")
 
 			# add daily extra events
 			for event in EXTRA:
@@ -196,7 +213,7 @@ def main():
 						DESCRIPTION:{event[3]}
 						LOCATION:{event[4]}
 						END:VEVENT
-					""".replace("\t","")
+					""".replace("\t", "")
 
 	lines += "\nEND:VCALENDAR"
 
